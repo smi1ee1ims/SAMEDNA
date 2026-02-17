@@ -4,7 +4,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>音乐数据记录 - Spotify大盘查询</title>
+<title>Spotify大盘</title>
 <!-- TailwindCSS for styling -->
 <script src="https://image.uc.cn/s/uae/g/3n/mos-production/0915/3.4.17.js"></script>
 <!-- Font Awesome for icons -->
@@ -100,7 +100,7 @@
 <!-- Page Title Section -->
 <div class="mb-8">
 <h1 class="text-3xl font-bold text-white mb-2">Spotify每日大盘查询</h1>
-<p class="text-gray-400">查询每日全球大盘指数，追踪音乐市场整体热度。</p>
+<p class="text-gray-400">查询每日全球大盘指数</p>
 </div>
 <!-- Control Panel: Date Picker -->
 <div class="bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-700 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -137,7 +137,7 @@
 <i class="fa-solid fa-arrow-trend-up"></i> --
                             </span>
 </div>
-<p class="text-gray-500 text-xs mt-4">数据来源: data/spotify_daily.json</p>
+<p class="text-gray-500 text-xs mt-4">数据来源: spotify</p>
 </div>
 <!-- Chart Card -->
 <div class="lg:col-span-2 bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-700 flex flex-col">
@@ -166,24 +166,11 @@
 <div class="fixed bottom-5 right-5 z-50 flex flex-col gap-2" id="toastContainer"></div>
 <!-- JavaScript Logic -->
 <script>
-        // Define the mock data directly within the file to comply with "No fetch/local file loading" constraints.
-        // This simulates the content of 'data/spotify_daily.json'.
-        const SPOTIFY_DAILY_DATA = [
-            { date: "2026-02-11", value: 1245000 },
-            { date: "2026-02-12", value: 1289000 },
-            { date: "2026-02-13", value: 1275000 },
-            { date: "2026-02-14", value: 1320000 },
-            { date: "2026-02-15", value: 1298000 },
-            { date: "2026-02-16", value: 1264000 },
-            { date: "2026-02-17", value: 1258430 },
-            { date: "2026-02-18", value: 1300500 }, // Current Date (Target)
-            { date: "2026-02-19", value: 1289000 },
-            { date: "2026-02-20", value: 1312000 },
-            { date: "2026-02-21", value: 1345000 },
-            { date: "2026-02-22", value: 1330000 }
-        ];
+         // ✅ 替换：不再内嵌数据，改为从外部 JSON 文件加载
+        let SPOTIFY_DAILY_DATA = null;
+        const CURRENT_DATE = "2026-02-18";
 
-        // DOM Elements
+        // DOM Elements（保持不变）
         const datePicker = document.getElementById('datePicker');
         const marketValueEl = document.getElementById('marketValue');
         const trendIndicatorEl = document.getElementById('trendIndicator');
@@ -191,33 +178,51 @@
         const chartDom = document.getElementById('trendChart');
         let myChart = null;
 
-        // Constants
-        const CURRENT_DATE = "2026-02-18";
-
         /**
-         * Initialize the application
-         */
-        function init() {
-            // Set default date to current date
-            datePicker.value = CURRENT_DATE;
-            datePicker.max = "2026-12-31"; // Optional constraint
+        * 初始化应用（稍作调整：等数据加载完再 init）
+        */
+        function initApp() {
+                // Set default date to current date
+                datePicker.value = CURRENT_DATE;
+                datePicker.max = "2026-12-31"; // Optional constraint
+        
+                // Initialize ECharts instance
+                myChart = echarts.init(chartDom);
+        
+                // Handle window resize
+                window.addEventListener('resize', () => {
+                    myChart.resize();
+                });
+        
+                // Event listener for date change
+                datePicker.addEventListener('change', (e) => {
+                    updateDashboard(e.target.value);
+                });
+        
+                // Initial load
+                updateDashboard(CURRENT_DATE);
+            }
 
-            // Initialize ECharts instance
-            myChart = echarts.init(chartDom);
+            // ✅ 新增：加载数据后启动应用
+        fetch('data/spotify_daily.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('未找到 data/spotify_daily.json');
+                    return response.json();
+                })
+                .then(data => {
+                    // 假设你的 JSON 是数组格式，如 [{date: "...", value: ...}, ...]
+                    SPOTIFY_DAILY_DATA = data;
+                    initApp(); // 数据就绪，初始化
+                })
+                .catch(err => {
+                    console.error('数据加载失败:', err);
+                    // 显示错误到页面（可选）
+                    document.getElementById('marketValue').innerText = '❌';
+                    document.getElementById('detailsContent').innerHTML = 
+                        `<p class="text-red-400"><i class="fa-solid fa-triangle-exclamation mr-2"></i>数据加载失败：${err.message}</p>`;
+                });
 
-            // Handle window resize
-            window.addEventListener('resize', () => {
-                myChart.resize();
-            });
-
-            // Event listener for date change
-            datePicker.addEventListener('change', (e) => {
-                updateDashboard(e.target.value);
-            });
-
-            // Initial load
-            updateDashboard(CURRENT_DATE);
-        }
+        
 
         /**
          * Update the dashboard based on selected date
