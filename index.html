@@ -239,7 +239,7 @@
 
             if (record) {
                 // Update Value Display
-                animateValue(marketValueEl, parseInt(marketValueEl.innerText.replace(/,/g, '')) || 0, record.value, 800);
+                animateValue(marketValueEl, parseInt(marketValueEl.innerText.replace(/,/g, '')) || 0, record.value, 460);
                 
                 // Calculate Trend (Compare with previous day if available)
                 updateTrend(dateStr, record.value);
