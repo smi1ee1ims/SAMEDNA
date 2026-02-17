@@ -1,209 +1,454 @@
 <!DOCTYPE html>
-<html lang="zh">
+
+<html lang="zh-CN">
 <head>
- <meta charset="UTF-8">
- <title>WebGL 手势控制爱心粒子</title>
- <style>
-     body { margin: 0; overflow: hidden; background-color: #000; }
-     #canvas-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
-     /* 隐藏摄像头视频流，只用于后台分析 */
-     .input_video { display: none; }
-     #loading {
-         position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-         color: white; font-family: sans-serif; font-size: 24px; pointer-events: none; z-index: 10;
-     }
- </style>
- <!-- 引入 Three.js -->
- <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
- <!-- 引入 MediaPipe Hands -->
- <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
- <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
- <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
- <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>音乐数据记录 - Spotify大盘查询</title>
+<!-- TailwindCSS for styling -->
+<script src="https://image.uc.cn/s/uae/g/3n/mos-production/0915/3.4.17.js"></script>
+<!-- Font Awesome for icons -->
+<script src="https://image.uc.cn/s/uae/g/3n/mos-production/fontawesome-free-7.1.0-web/js/all.min.js"></script>
+<link href="https://image.uc.cn/s/uae/g/3n/mos-production/fontawesome-free-7.1.0-web/css/fontawesome.min.css" rel="stylesheet"/>
+<!-- ECharts for data visualization -->
+<script src="https://image.uc.cn/s/uae/g/3n/mos-production/cdn-staticfile-net/echarts/5.4.3/echarts.min.js"></script>
+<!-- Custom Styles -->
+<style>
+        /* Custom scrollbar for webkit browsers */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1f2937; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4b5563; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280; 
+        }
+
+        /* Smooth transitions for interactive elements */
+        .transition-all-300 {
+            transition: all 0.3s ease-in-out;
+        }
+
+        /* Custom date picker icon styling */
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            cursor: pointer;
+        }
+    </style>
 </head>
-<body>
-
-<div id="loading">正在加载模型与摄像头...<br>请允许摄像头权限</div>
-<div id="canvas-container"></div>
-<video class="input_video"></video>
-
+<body class="bg-gray-900 text-gray-100 font-sans antialiased overflow-hidden">
+<!-- Main Layout Container -->
+<div class="flex h-screen w-full">
+<!-- Sidebar Section -->
+<aside class="w-64 bg-gray-800 border-r border-gray-700 flex flex-col shadow-xl z-20 transition-all-300 hidden md:flex">
+<!-- Sidebar Header / Logo -->
+<div class="h-16 flex items-center px-6 border-b border-gray-700">
+<i class="fa-solid fa-music text-green-500 text-xl mr-3"></i>
+<span class="text-lg font-bold tracking-wide">MusicData</span>
+</div>
+<!-- Navigation Menu -->
+<nav class="flex-1 overflow-y-auto py-4">
+<ul class="space-y-1">
+<!-- Active Menu Item -->
+<li>
+<a class="flex items-center px-6 py-3 bg-gray-900 text-green-400 border-r-4 border-green-500 group transition-all-300" href="#">
+<i class="fa-brands fa-spotify w-6 text-center mr-2"></i>
+<span class="font-medium">Spotify每日大盘</span>
+</a>
+</li>
+<!-- Placeholder for future modules (Extensible Interface) -->
+<li>
+<a class="flex items-center px-6 py-3 text-gray-400 hover:bg-gray-700 hover:text-white transition-all-300 group" href="#" onclick="handleFutureFeature(event)">
+<i class="fa-solid fa-chart-line w-6 text-center mr-2 group-hover:text-blue-400"></i>
+<span class="font-medium">Apple Music趋势</span>
+<span class="ml-auto text-xs bg-gray-700 px-2 py-0.5 rounded text-gray-300">Soon</span>
+</a>
+</li>
+<li>
+<a class="flex items-center px-6 py-3 text-gray-400 hover:bg-gray-700 hover:text-white transition-all-300 group" href="#" onclick="handleFutureFeature(event)">
+<i class="fa-solid fa-globe w-6 text-center mr-2 group-hover:text-purple-400"></i>
+<span class="font-medium">全球榜单归档</span>
+</a>
+</li>
+</ul>
+</nav>
+<!-- Sidebar Footer -->
+<div class="p-4 border-t border-gray-700 text-xs text-gray-500 text-center">
+                © 2026 MusicData Project
+            </div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col h-screen overflow-hidden relative">
+<!-- Mobile Header (Visible only on small screens) -->
+<header class="md:hidden h-16 bg-gray-800 flex items-center px-4 justify-between border-b border-gray-700">
+<div class="flex items-center">
+<i class="fa-solid fa-music text-green-500 text-lg mr-2"></i>
+<span class="font-bold">MusicData</span>
+</div>
+<button class="text-gray-300 hover:text-white focus:outline-none">
+<i class="fa-solid fa-bars text-xl"></i>
+</button>
+</header>
+<!-- Scrollable Content -->
+<div class="flex-1 overflow-y-auto p-6 md:p-10">
+<!-- Page Title Section -->
+<div class="mb-8">
+<h1 class="text-3xl font-bold text-white mb-2">Spotify每日大盘查询</h1>
+<p class="text-gray-400">查询每日全球大盘指数，追踪音乐市场整体热度。</p>
+</div>
+<!-- Control Panel: Date Picker -->
+<div class="bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-700 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+<div class="flex items-center w-full sm:w-auto">
+<label class="text-gray-300 font-medium mr-4 whitespace-nowrap" for="datePicker">
+<i class="fa-regular fa-calendar mr-2"></i>选择日期
+                        </label>
+<input class="bg-gray-900 border border-gray-600 text-white text-sm rounded-lg focus:ring-green-500 focus:border-green-500 block w-full sm:w-48 p-2.5 outline-none transition-all-300 hover:border-gray-500" id="datePicker" type="date"/>
+</div>
+<!-- Quick Actions (Visual Only) -->
+<div class="flex gap-2">
+<button class="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm text-gray-300 transition-colors" onclick="adjustDate(-1)">
+<i class="fa-solid fa-chevron-left"></i> 前一天
+                        </button>
+<button class="px-3 py-2 bg-green-600 hover:bg-green-700 rounded text-sm text-white font-medium transition-colors shadow-lg shadow-green-900/50" onclick="setToday()">
+                            回到今天
+                        </button>
+<button class="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm text-gray-300 transition-colors" onclick="adjustDate(1)">
+                            后一天 <i class="fa-solid fa-chevron-right"></i>
+</button>
+</div>
+</div>
+<!-- Data Display Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+<!-- Main Metric Card -->
+<div class="lg:col-span-1 bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-6 shadow-lg border border-gray-700 relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<i class="fa-brands fa-spotify text-8xl text-green-500"></i>
+</div>
+<h3 class="text-gray-400 text-sm font-medium uppercase tracking-wider mb-1">当日大盘数值</h3>
+<div class="flex items-baseline mt-2">
+<span class="text-5xl font-bold text-white tracking-tight" id="marketValue">--</span>
+<span class="ml-2 text-sm text-green-400 font-medium" id="trendIndicator">
+<i class="fa-solid fa-arrow-trend-up"></i> --
+                            </span>
+</div>
+<p class="text-gray-500 text-xs mt-4">数据来源: data/spotify_daily.json</p>
+</div>
+<!-- Chart Card -->
+<div class="lg:col-span-2 bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-700 flex flex-col">
+<div class="flex justify-between items-center mb-4">
+<h3 class="text-gray-300 font-medium">近7日趋势图</h3>
+<div class="flex gap-2">
+<span class="w-3 h-3 rounded-full bg-green-500 inline-block"></span>
+<span class="text-xs text-gray-500">大盘指数</span>
+</div>
+</div>
+<!-- ECharts Container -->
+<div class="w-full h-64 flex-1" id="trendChart"></div>
+</div>
+</div>
+<!-- Detailed Info Section (Placeholder for extensibility) -->
+<div class="bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-700">
+<h3 class="text-lg font-medium text-white mb-4 border-b border-gray-700 pb-2">数据详情</h3>
+<div class="text-gray-400 text-sm" id="detailsContent">
+<p>正在加载数据...</p>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- Toast Notification Container -->
+<div class="fixed bottom-5 right-5 z-50 flex flex-col gap-2" id="toastContainer"></div>
+<!-- JavaScript Logic -->
 <script>
- // --- 1. Three.js 场景初始化 ---
- const scene = new THREE.Scene();
- const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
- camera.position.z = 30;
+        // Define the mock data directly within the file to comply with "No fetch/local file loading" constraints.
+        // This simulates the content of 'data/spotify_daily.json'.
+        const SPOTIFY_DAILY_DATA = [
+            { date: "2026-02-11", value: 1245000 },
+            { date: "2026-02-12", value: 1289000 },
+            { date: "2026-02-13", value: 1275000 },
+            { date: "2026-02-14", value: 1320000 },
+            { date: "2026-02-15", value: 1298000 },
+            { date: "2026-02-16", value: 1264000 },
+            { date: "2026-02-17", value: 1258430 },
+            { date: "2026-02-18", value: 1300500 }, // Current Date (Target)
+            { date: "2026-02-19", value: 1289000 },
+            { date: "2026-02-20", value: 1312000 },
+            { date: "2026-02-21", value: 1345000 },
+            { date: "2026-02-22", value: 1330000 }
+        ];
 
- const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
- renderer.setSize(window.innerWidth, window.innerHeight);
- document.getElementById('canvas-container').appendChild(renderer.domElement);
+        // DOM Elements
+        const datePicker = document.getElementById('datePicker');
+        const marketValueEl = document.getElementById('marketValue');
+        const trendIndicatorEl = document.getElementById('trendIndicator');
+        const detailsContentEl = document.getElementById('detailsContent');
+        const chartDom = document.getElementById('trendChart');
+        let myChart = null;
 
- // --- 2. 创建爱心粒子系统 ---
- const particleCount = 3000; // 粒子数量
- const geometry = new THREE.BufferGeometry();
- const positions = new Float32Array(particleCount * 3);
- const targetPositions = new Float32Array(particleCount * 3); // 存储爱心形状的目标位置
- const randomPositions = new Float32Array(particleCount * 3); // 存储散开时的随机位置
+        // Constants
+        const CURRENT_DATE = "2026-02-18";
 
- // 爱心方程函数
- function getHeartPosition(t, scale = 1) {
-     const x = 16 * Math.pow(Math.sin(t), 3);
-     const y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
-     const z = 0; 
-     return { x: x * scale, y: y * scale, z: z * scale };
- }
+        /**
+         * Initialize the application
+         */
+        function init() {
+            // Set default date to current date
+            datePicker.value = CURRENT_DATE;
+            datePicker.max = "2026-12-31"; // Optional constraint
 
- for (let i = 0; i < particleCount; i++) {
-     // 生成爱心形状的目标点
-     // 为了让爱心立体一点，我们随机分布t，并在Z轴加一点随机扰动
-     const t = Math.random() * Math.PI * 2;
-     const scale = 0.5; 
-     const heartPos = getHeartPosition(t, scale);
-     
-     // 填充爱心内部 (随机缩放)
-     const r = Math.sqrt(Math.random()); 
-     
-     targetPositions[i * 3] = heartPos.x * r;
-     targetPositions[i * 3 + 1] = heartPos.y * r;
-     targetPositions[i * 3 + 2] = (Math.random() - 0.5) * 5; // Z轴厚度
+            // Initialize ECharts instance
+            myChart = echarts.init(chartDom);
 
-     // 生成散开的随机位置 (爆炸效果)
-     randomPositions[i * 3] = (Math.random() - 0.5) * 100;
-     randomPositions[i * 3 + 1] = (Math.random() - 0.5) * 60;
-     randomPositions[i * 3 + 2] = (Math.random() - 0.5) * 50;
+            // Handle window resize
+            window.addEventListener('resize', () => {
+                myChart.resize();
+            });
 
-     // 初始位置设为散开状态
-     positions[i * 3] = randomPositions[i * 3];
-     positions[i * 3 + 1] = randomPositions[i * 3 + 1];
-     positions[i * 3 + 2] = randomPositions[i * 3 + 2];
- }
+            // Event listener for date change
+            datePicker.addEventListener('change', (e) => {
+                updateDashboard(e.target.value);
+            });
 
- geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            // Initial load
+            updateDashboard(CURRENT_DATE);
+        }
 
- // 粒子材质
- const material = new THREE.PointsMaterial({
-     color: 0xff69b4, // 热粉色
-     size: 0.4,
-     transparent: true,
-     opacity: 0.8,
-     blending: THREE.AdditiveBlending
- });
+        /**
+         * Update the dashboard based on selected date
+         * @param {string} dateStr - Date string in YYYY-MM-DD format
+         */
+        function updateDashboard(dateStr) {
+            const record = SPOTIFY_DAILY_DATA.find(item => item.date === dateStr);
 
- const particles = new THREE.Points(geometry, material);
- scene.add(particles);
+            if (record) {
+                // Update Value Display
+                animateValue(marketValueEl, parseInt(marketValueEl.innerText.replace(/,/g, '')) || 0, record.value, 800);
+                
+                // Calculate Trend (Compare with previous day if available)
+                updateTrend(dateStr, record.value);
 
- // --- 3. 交互逻辑变量 ---
- let gatherFactor = 0; // 0 = 完全散开, 1 = 完全聚合成爱心
- let targetGatherFactor = 0; // 目标聚合度，由手势控制
+                // Update Details
+                detailsContentEl.innerHTML = `
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <span class="block text-gray-500 text-xs">记录日期</span>
+                            <span class="text-white font-mono">${record.date}</span>
+                        </div>
+                        <div>
+                            <span class="block text-gray-500 text-xs">数据状态</span>
+                            <span class="text-green-400"><i class="fa-solid fa-check-circle"></i> 已校验</span>
+                        </div>
+                        <div class="col-span-2">
+                            <span class="block text-gray-500 text-xs">备注</span>
+                            <span class="text-gray-300">该数据反映当日Spotify全球活跃流媒体播放总量指数。</span>
+                        </div>
+                    </div>
+                `;
 
- // --- 4. MediaPipe Hands 配置 ---
- const videoElement = document.getElementsByClassName('input_video')[0];
+                // Update Chart
+                updateChart(dateStr);
 
- function onResults(results) {
-     document.getElementById('loading').style.display = 'none';
+            } else {
+                // Handle Not Found
+                marketValueEl.innerText = "N/A";
+                trendIndicatorEl.innerHTML = `<span class="text-gray-500">无数据</span>`;
+                detailsContentEl.innerHTML = `<p class="text-red-400"><i class="fa-solid fa-triangle-exclamation mr-2"></i>未找到 ${dateStr} 的记录数据。</p>`;
+                
+                // Clear chart or show empty state
+                myChart.clear();
+                myChart.setOption({
+                    title: { text: '暂无数据', left: 'center', top: 'center', textStyle: { color: '#6b7280' } },
+                    grid: { top: 0, bottom: 0, left: 0, right: 0 }
+                });
+            }
+        }
 
-     if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-         const landmarks = results.multiHandLandmarks[0];
+        /**
+         * Calculate and display trend compared to previous day
+         */
+        function updateTrend(currentDate, currentValue) {
+            const currentIndex = SPOTIFY_DAILY_DATA.findIndex(item => item.date === currentDate);
+            if (currentIndex > 0) {
+                const prevValue = SPOTIFY_DAILY_DATA[currentIndex - 1].value;
+                const diff = currentValue - prevValue;
+                const percent = ((diff / prevValue) * 100).toFixed(2);
+                
+                if (diff >= 0) {
+                    trendIndicatorEl.className = "ml-2 text-sm text-green-400 font-medium";
+                    trendIndicatorEl.innerHTML = `<i class="fa-solid fa-arrow-trend-up"></i> +${percent}%`;
+                } else {
+                    trendIndicatorEl.className = "ml-2 text-sm text-red-400 font-medium";
+                    trendIndicatorEl.innerHTML = `<i class="fa-solid fa-arrow-trend-down"></i> ${percent}%`;
+                }
+            } else {
+                trendIndicatorEl.className = "ml-2 text-sm text-gray-500 font-medium";
+                trendIndicatorEl.innerHTML = `--`;
+            }
+        }
 
-         // 计算手掌开合程度
-         // 简单算法：计算拇指指尖(4)与其他四指指尖(8,12,16,20)到手腕(0)的平均距离
-         const wrist = landmarks[0];
-         const fingerTips = [4, 8, 12, 16, 20];
-         let totalDist = 0;
+        /**
+         * Update ECharts visualization
+         */
+        function updateChart(targetDate) {
+            // Find data for the week surrounding the target date
+            const targetIndex = SPOTIFY_DAILY_DATA.findIndex(item => item.date === targetDate);
+            let startIndex = Math.max(0, targetIndex - 3);
+            let endIndex = Math.min(SPOTIFY_DAILY_DATA.length - 1, targetIndex + 3);
+            
+            // Ensure we have a range of at least 1
+            if (targetIndex === -1) return;
 
-         fingerTips.forEach(idx => {
-             const tip = landmarks[idx];
-             const dist = Math.sqrt(
-                 Math.pow(tip.x - wrist.x, 2) + 
-                 Math.pow(tip.y - wrist.y, 2)
-             );
-             totalDist += dist;
-         });
+            const chartData = SPOTIFY_DAILY_DATA.slice(startIndex, endIndex + 1);
+            const dates = chartData.map(item => item.date.slice(5)); // Show MM-DD
+            const values = chartData.map(item => item.value);
 
-         const avgDist = totalDist / 5;
+            const option = {
+                tooltip: {
+                    trigger: 'axis',
+                    backgroundColor: 'rgba(31, 41, 55, 0.9)',
+                    borderColor: '#4b5563',
+                    textStyle: { color: '#fff' }
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '3%',
+                    top: '10%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    boundaryGap: false,
+                    data: dates,
+                    axisLine: { lineStyle: { color: '#4b5563' } },
+                    axisLabel: { color: '#9ca3af' }
+                },
+                yAxis: {
+                    type: 'value',
+                    splitLine: { lineStyle: { color: '#374151', type: 'dashed' } },
+                    axisLabel: { color: '#9ca3af' }
+                },
+                series: [
+                    {
+                        name: '大盘指数',
+                        type: 'line',
+                        smooth: true,
+                        data: values,
+                        symbolSize: 8,
+                        itemStyle: {
+                            color: '#22c55e' // Green-500
+                        },
+                        areaStyle: {
+                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                { offset: 0, color: 'rgba(34, 197, 94, 0.5)' },
+                                { offset: 1, color: 'rgba(34, 197, 94, 0.0)' }
+                            ])
+                        },
+                        lineStyle: {
+                            width: 3,
+                            shadowColor: 'rgba(34, 197, 94, 0.5)',
+                            shadowBlur: 10
+                        }
+                    }
+                ]
+            };
 
-         // 经验阈值：
-         // 握拳时，指尖距离手腕很近 (avgDist 约 0.1 - 0.2)
-         // 张开时，指尖距离手腕较远 (avgDist 约 0.4 - 0.6)
-         // 我们做一个映射：握拳(distance small) -> 聚合(factor 1), 张开 -> 散开(factor 0)
-         
-         // 动态调整这些阈值以适应摄像头的距离
-         const closeThreshold = 0.25; 
-         const openThreshold = 0.5;
+            myChart.setOption(option);
+        }
 
-         let normalized = (avgDist - closeThreshold) / (openThreshold - closeThreshold);
-         normalized = 1 - Math.min(Math.max(normalized, 0), 1); // 反转：距离越小(握拳)，值越大(1)
+        /**
+         * Helper: Number animation
+         */
+        function animateValue(obj, start, end, duration) {
+            let startTimestamp = null;
+            const step = (timestamp) => {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                const currentVal = Math.floor(progress * (end - start) + start);
+                obj.innerHTML = currentVal.toLocaleString();
+                if (progress < 1) {
+                    window.requestAnimationFrame(step);
+                }
+            };
+            window.requestAnimationFrame(step);
+        }
 
-         targetGatherFactor = normalized; 
+        /**
+         * Helper: Adjust date by days
+         */
+        function adjustDate(days) {
+            const current = new Date(datePicker.value);
+            current.setDate(current.getDate() + days);
+            const newDateStr = current.toISOString().split('T')[0];
+            datePicker.value = newDateStr;
+            updateDashboard(newDateStr);
+        }
 
-     } else {
-         // 如果没有检测到手，默认缓慢散开
-         targetGatherFactor = 0;
-     }
- }
+        /**
+         * Helper: Set date to today (2026-02-18 in this context)
+         */
+        function setToday() {
+            datePicker.value = CURRENT_DATE;
+            updateDashboard(CURRENT_DATE);
+            showToast("已回到今天", "success");
+        }
 
- const hands = new Hands({locateFile: (file) => {
-     return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
- }});
+        /**
+         * Helper: Handle future feature clicks
+         */
+        function handleFutureFeature(e) {
+            e.preventDefault();
+            showToast("该功能模块正在开发中，敬请期待！", "info");
+        }
 
- hands.setOptions({
-     maxNumHands: 1,
-     modelComplexity: 1,
-     minDetectionConfidence: 0.5,
-     minTrackingConfidence: 0.5
- });
+        /**
+         * UI Component: Toast Notification
+         */
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            
+            // Colors based on type
+            let bgClass = "bg-gray-800";
+            let borderClass = "border-gray-600";
+            let icon = '<i class="fa-solid fa-circle-info text-blue-400"></i>';
 
- hands.onResults(onResults);
+            if (type === 'success') {
+                borderClass = "border-green-500";
+                icon = '<i class="fa-solid fa-circle-check text-green-400"></i>';
+            }
 
- const cameraUtils = new Camera(videoElement, {
-     onFrame: async () => {
-         await hands.send({image: videoElement});
-     },
-     width: 640,
-     height: 480
- });
- cameraUtils.start();
+            toast.className = `${bgClass} border-l-4 ${borderClass} text-white px-4 py-3 rounded shadow-lg flex items-center gap-3 transform transition-all duration-300 translate-y-10 opacity-0 min-w-[250px]`;
+            toast.innerHTML = `
+                ${icon}
+                <span class="text-sm font-medium">${message}</span>
+            `;
 
- // --- 5. 动画循环 ---
- function animate() {
-     requestAnimationFrame(animate);
+            container.appendChild(toast);
 
-     // 粒子自身旋转动画
-     particles.rotation.y += 0.002;
+            // Animate in
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-10', 'opacity-0');
+            });
 
-     // 平滑过渡聚合系数 (Lerp)
-     gatherFactor += (targetGatherFactor - gatherFactor) * 0.05;
+            // Remove after 3 seconds
+            setTimeout(() => {
+                toast.classList.add('translate-y-10', 'opacity-0');
+                setTimeout(() => {
+                    toast.remove();
+                }, 300);
+            }, 3000);
+        }
 
-     // 更新粒子位置
-     const posAttr = particles.geometry.attributes.position;
-     const currentPositions = posAttr.array;
+        // Run initialization when DOM is ready
+        document.addEventListener('DOMContentLoaded', init);
 
-     for (let i = 0; i < particleCount; i++) {
-         const idx = i * 3;
-         
-         // 目标位置插值：从 randomPositions 过渡到 targetPositions
-         const tx = randomPositions[idx] + (targetPositions[idx] - randomPositions[idx]) * gatherFactor;
-         const ty = randomPositions[idx+1] + (targetPositions[idx+1] - randomPositions[idx+1]) * gatherFactor;
-         const tz = randomPositions[idx+2] + (targetPositions[idx+2] - randomPositions[idx+2]) * gatherFactor;
-
-         // 增加一点动态浮动效果
-         currentPositions[idx] += (tx - currentPositions[idx]) * 0.1;
-         currentPositions[idx+1] += (ty - currentPositions[idx+1]) * 0.1;
-         currentPositions[idx+2] += (tz - currentPositions[idx+2]) * 0.1;
-     }
-
-     posAttr.needsUpdate = true;
-     renderer.render(scene, camera);
- }
-
- animate();
-
- // 窗口大小调整适配
- window.addEventListener('resize', () => {
-     camera.aspect = window.innerWidth / window.innerHeight;
-     camera.updateProjectionMatrix();
-     renderer.setSize(window.innerWidth, window.innerHeight);
- });
-</script>
+    </script>
 </body>
 </html>
-
